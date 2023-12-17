@@ -1,9 +1,14 @@
 const translate = require('node-google-translate-skidz');
+const langdetect = require('langdetect');
 
-async function translateString(text, translateTo, userLanguage) {
+async function translateString(text, translateTo) {
   try {
+    // Automatically detect the user's language
+    const userLanguage = langdetect.detectOne(text);
+
     console.log('translateTo:', translateTo);
-    console.log('userlanguage:', userLanguage);
+    console.log('userLanguage:', userLanguage);
+
     const translated = await translate({
       text,
       source: userLanguage,
