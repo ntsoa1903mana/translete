@@ -9,78 +9,66 @@ router.post('/', async (req, res) => {
   try {
     const { entry } = req.body;
 
-    if (entry && entry.length > 0 && entry[0].messaging && entry[0].messaging.length > 0) {
-      const { sender: { id: senderId }, message } = entry[0].messaging[0];
+    if (!entry || entry.length === 0 || !entry[0].messaging || entry[0].messaging.length === 0) {
+      return res.status(200).send('OK');
+    }
 
-      if (message && message.text) {
-        const { text: query } = message;
-        console.log(`${senderId}`);
+    const { sender: { id: senderId }, message } = entry[0].messaging[0];
 
-        // Split the message by space to extract the username
-        const [command, username] = query.split(' ');
+    if (message && message.text) {
+      const { text: query } = message;
 
-        if (command === 'Anarana' && username) {
-          // If the user sends '0000' followed by a username, save the senderId and username in Redis
-          try {
-            await saveUserId(senderId, username);
-            console.log('User ID and username saved in Redis.');
-          } catch (err) {
-            console.error('Error saving user ID and username in Redis:', err);
-          }
-        }
+      const anaranaRegex = /^anarana\s+([^\s]+)$/i;
+      const match = query.match(anaranaRegex);
 
-        // Check if the senderId exists in Redis
+      if (match) {
+        const username = match[1];
+
         try {
-          const userId = await getUserId(senderId);
+          // Save the senderId and username in Redis
+          await saveUserId(senderId, username);
 
-          if (userId) {
-            // SenderId exists in Redis, proceed with the translation logic
+          const nameMessage = `Hey ${username}👋, voici les conditions pour utiliser Ahy Translate :\n\nVotre message doit contenir *fr ou toutes les combinaisons possibles.\n*fr = *français, ce qui signifie que vous souhaitez le traduire en français.`;
+          const exampleMessage = 'Exemple de message : Comment envoyer des messages sur Ahy Translate. *en\nRéponse : How to send messages on Ahy Translate.\n\nExemples abrégés :\nMadagascar (MG) 🇲🇬\nFrance (FR) 🇫🇷\nAnglais (EN) 🇺🇸';
 
-            // Extract the target language code from the message, e.g., "hi.mg"
-            const transleteTo = query.split('*')[1];
+          console.log('User ID and username saved in Redis.');
+          await sendMessage(senderId, nameMessage);
+          await sendMessage(senderId, exampleMessage);
 
-            const query1 = query.split('*')[0];
-
-            // Check if a valid target language code is found
-            if (transleteTo) {
-              // Perform translation here
-              const translation = await translateString(query1, transleteTo);
-              // Send the translation as a response
-              await sendMessage(senderId, translation);
-            } else {
-              const username = await getUsername(senderId);
-              // Handle invalid translation request
-              const correctRequest = `Hey ${username}👋, voici les conditions pour utiliser Ahy Translate :
-votre message doit contenir *fr ou toutes les combinaisons possibles.\n
-*fr = *français, ce qui signifie que vous souhaitez le traduire en français.`;
-              const exempleMessage = `Exemple de message : Comment envoyer des messages sur Ahy Translate. *en
-Réponse : How to send messages on Ahy Translate.
-
-Exemples abrégés :
-  Madagascar (MG) 🇲🇬
-  France (FR) 🇫🇷
-  Anglais (EN) 🇺🇸`;
-              // Use Promise.all to send them concurrently
-              await sendMessage(senderId, correctRequest);
-              sendMessage(senderId, exempleMessage);
-            }
-          } else {
-            const mess = `Hey, Pour la première fois sur nos services, envoyez-nous votre prénom écrit juste (Anarana votre prénom). Ex: Anarana Mana)`
-            await sendMessage(senderId, mess);
-          }
+          return res.status(200).send('OK');
         } catch (err) {
-          console.error('Error retrieving user ID from Redis:', err);
+          console.error('Error saving user ID and username in Redis:', err);
+          return res.status(500).send('Internal Server Error');
         }
+      }
+
+      try {
+        const userId = await getUserId(senderId);
+
+        if (userId) {
+          const [queryWithoutLang, translateTo] = query.split('*');
+
+          if (translateTo) {
+            const translation = await translateString(queryWithoutLang, translateTo);
+            await sendMessage(senderId, translation);
+          }
+        } else {
+          const welcomeMessage = 'Hey, Pour la première fois sur nos services, envoyez-nous votre prénom écrit juste (Anarana votre prénom). Ex: Anarana Mana)';
+          await sendMessage(senderId, welcomeMessage);
+        }
+      } catch (err) {
+        console.error('Error retrieving user ID from Redis:', err);
+        return res.status(500).send('Internal Server Error');
       }
     }
   } catch (error) {
     console.error(error);
+    return res.status(500).send('Internal Server Error');
   }
 
-  res.status(200).send('OK');
+  return res.status(200).send('OK');
 });
 
-// Handle GET requests for verification
 router.get('/', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
