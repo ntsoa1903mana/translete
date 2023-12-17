@@ -4,10 +4,7 @@ require('dotenv').config();
 const { saveUserId, getUserId, getUsername } = require('../helper/redisHelper');
 const translateString = require('../helper/transLet');
 const { sendMessage } = require('../helper/messengerApi');
-// Function to count the number of words in a string
-function countWords(str) {
-  return str.split(/\s+/).filter(Boolean).length;
-}
+
 router.post('/', async (req, res) => {
   try {
     const { entry } = req.body;
@@ -22,7 +19,7 @@ router.post('/', async (req, res) => {
         // Split the message by space to extract the username
         const [command, username] = query.split(' ');
 
-        if (command === '0000' && username) {
+        if (command === 'Anarana' && username) {
           // If the user sends '0000' followed by a username, save the senderId and username in Redis
           try {
             await saveUserId(senderId, username);
@@ -40,49 +37,35 @@ router.post('/', async (req, res) => {
             // SenderId exists in Redis, proceed with the translation logic
 
             // Extract the target language code from the message, e.g., "hi.mg"
-            const userLanguage = query.split('*')[1];
-            const transleteTo = query.split('*')[2];
+            const transleteTo = query.split('*')[1];
 
             const query1 = query.split('*')[0];
-            // Log the word count
-            const wordCount = countWords(query1);
-            console.log(`Word Count: ${wordCount}`);
 
             // Check if a valid target language code is found
             if (transleteTo) {
-              // Check if the message contains more than 500 words
-              if (wordCount <= 100) {
-                // Perform translation here
-                const translation = await translateString(query1, transleteTo, userLanguage);
-                // Send the translation as a response
-                await sendMessage(senderId, translation);
-              } else {
-                await sendMessage(senderId, "Désolé, pour le moment je ne suis pas autorisé à traduire des messages plus longs que 100 mots.");
-              }
+              // Perform translation here
+              const translation = await translateString(query1, transleteTo);
+              // Send the translation as a response
+              await sendMessage(senderId, translation);
             } else {
               const username = await getUsername(senderId);
               // Handle invalid translation request
               const correctRequest = `Hey ${username}👋, voici les conditions pour utiliser Ahy Translate :
-votre message doit contenir *en*fr ou toutes les combinaisons possibles.\n
-*en*fr = *anglais*français, ce qui signifie que votre message est en anglais et que vous souhaitez le traduire en français. Vous pouvez simplement le rédiger en suivant le format *source*destination.\n`;
-              const exempleMessage = `Exemple de message : Comment envoyer des messages sur Ahy Translate. *fr*en
+votre message doit contenir *fr ou toutes les combinaisons possibles.\n
+*fr = *français, ce qui signifie que vous souhaitez le traduire en français.`;
+              const exempleMessage = `Exemple de message : Comment envoyer des messages sur Ahy Translate. *en
 Réponse : How to send messages on Ahy Translate.
 
 Exemples abrégés :
   Madagascar (MG) 🇲🇬
   France (FR) 🇫🇷
-  Anglais (EN) 🇺🇸\n
-Pour plus d'exemples d'abréviations internationales de pays, je vous invite à envoyer un message à Ahy Bots.
-Cliquez ici : facebook.com/AhyBots`;
+  Anglais (EN) 🇺🇸`;
               // Use Promise.all to send them concurrently
-              await Promise.all([                
-                sendMessage(senderId, correctRequest),
-                sendMessage(senderId, exempleMessage),
-              ]);    
-
+              await sendMessage(senderId, correctRequest);
+              sendMessage(senderId, exempleMessage);
             }
           } else {
-            const mess = `Hey, Pour la première fois sur nos services, envoyez-nous votre prénom écrit juste (0000 votre prénom).`
+            const mess = `Hey, Pour la première fois sur nos services, envoyez-nous votre prénom écrit juste (Anarana votre prénom). Ex: Anarana Mana)`
             await sendMessage(senderId, mess);
           }
         } catch (err) {
@@ -96,6 +79,7 @@ Cliquez ici : facebook.com/AhyBots`;
 
   res.status(200).send('OK');
 });
+
 // Handle GET requests for verification
 router.get('/', (req, res) => {
   const mode = req.query['hub.mode'];
