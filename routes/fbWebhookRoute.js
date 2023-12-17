@@ -51,6 +51,9 @@ router.post('/', async (req, res) => {
           if (translateTo) {
             const translation = await translateString(queryWithoutLang, translateTo);
             await sendMessage(senderId, translation);
+          } else {
+            const exampleMessage = 'Exemple de message : Comment envoyer des messages sur Ahy Translate. *en\nRéponse : How to send messages on Ahy Translate.\n\nExemples abrégés :\nMadagascar (MG) 🇲🇬\nFrance (FR) 🇫🇷\nAnglais (EN) 🇺🇸';
+            await sendMessage(senderId, exampleMessage);
           }
         } else {
           const welcomeMessage = 'Hey, Pour la première fois sur nos services, envoyez-nous votre prénom écrit juste (Anarana votre prénom). Ex: Anarana Mana)';
